@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --fnac-black: #191919;
+            --green-gwf: #2ecc71;
+            --fossil-orange: #e67e22;
+        }
+
+        .green-checker {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            max-width: 550px;
+            margin: 3rem auto;
+            padding: 40px;
+            border-radius: 4px;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.07);
+            background: #fff;
+            color: var(--fnac-black);
+            text-align: center;
+        }
+
+        .search-group {
+            display: flex;
+            margin: 25px 0;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+        }
+
+        input#urlInput {
+            flex-grow: 1;
+            padding: 15px;
+            border: none;
+            font-size: 16px;
+            outline: none;
+        }
+
+        button#checkBtn {
+            padding: 0 25px;
+            background: var(--fnac-black);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: background 0.2s;
+        }
+
+        button#checkBtn:hover { background: #333; }
+
+        /* Loader Style FNAC */
+        .loader-container {
+            display: none;
+            margin: 30px 0;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .spinner {
+            width: 35px;
+            height: 35px;
+            border: 2px solid rgba(0,0,0,0.05);
+            border-top: 2px solid var(--fnac-black);
+            border-radius: 50%;
+            animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #result {
+            display: none;
+            text-align: left;
+            margin-top: 30px;
+            padding: 25px;
+            border-radius: 8px;
+            animation: fadeIn 0.4s ease;
+            line-height: 1.5;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .is-green { background: #f0fdf4; border-left: 5px solid var(--green-gwf); color: #166534; }
+        .is-fossil { background: #fff7ed; border-left: 5px solid var(--fossil-orange); color: #9a3412; }
+
+        .btn-action {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 18px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 0.85em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-right: 8px;
+        }
+
+        .btn-primary {
+            background: var(--fnac-black);
+            color: white;
+            border: none;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--fnac-black);
+            border: 1px solid var(--fnac-black);
+        }
+
+        .btn-action:hover { opacity: 0.8; }
+
+        .badge-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: #ffffff;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+
+        code {
+            display: block;
+            background: #f8f9fa;
+            padding: 10px;
+            font-size: 11px;
+            margin: 10px 0;
+            word-break: break-all;
+            border: 1px solid #eee;
+        }
+
+        .disclaimer { font-size: 0.8em; margin-top: 15px; opacity: 0.8; font-style: italic; }
+        .copy-btn { background: none; border: none; color: #0066cc; cursor: pointer; font-size: 12px; text-decoration: underline; padding: 0; }
+    </style>
+</head>
+<body>
+
+<div class="green-checker">
+    <h2 style="margin:0">Analyse de l'hébergement</h2>
+    <div class="search-group">
+        <input type="text" id="urlInput" placeholder="Ex: google.com" onkeypress="if(event.key === 'Enter') checkGreen()">
+        <button id="checkBtn" onclick="checkGreen()">Vérifier</button>
+    </div>
+
+    <div id="loader" class="loader-container">
+        <div class="spinner"></div>
+        <p id="loaderText" style="font-size: 14px; color: #666; margin-top: 15px;">Interrogation de la Green Web Foundation...</p>
+    </div>
+
+    <div id="result"></div>
+</div>
+
+<script>
+async function checkGreen() {
+    const input = document.getElementById('urlInput').value.trim();
+    const resultDiv = document.getElementById('result');
+    const loader = document.getElementById('loader');
+    const loaderText = document.getElementById('loaderText');
+    const btn = document.getElementById('checkBtn');
+
+    const domain = input.replace(/(^\w+:|^)\/\//, '').split('/')[0].toLowerCase();
+    if (!domain) return;
+
+    // Phase 1 : Recherche
+    resultDiv.style.display = "none";
+    loaderText.innerText = "Analyse des serveurs en cours...";
+    loader.style.display = "flex";
+    btn.disabled = true;
+
+    try {
+        const [response] = await Promise.all([
+            fetch(`https://api.thegreenwebfoundation.org/api/v3/greencheck/${domain}`),
+            new Promise(resolve => setTimeout(resolve, 2000)) // 2s pour la recherche initiale
+        ]);
+        
+        const data = await response.json();
+        const reportUrl = `https://www.thegreenwebfoundation.org/green-web-check/?url=${domain}`;
+
+        loader.style.display = "none";
+        btn.disabled = false;
+        resultDiv.style.display = "block";
+        resultDiv.className = "";
+
+        if (data.green) {
+            resultDiv.classList.add('is-green');
+            const badgeImg = `https://api.thegreenwebfoundation.org/greencheckimage/${domain}?type=2`;
+            const badgeTag = `<a href="${reportUrl}" target="_blank">\n  <img src="${badgeImg}" alt="Green Hosted">\n</a>`;
+
+            resultDiv.innerHTML = `
+                <div style="display: flex; align-items: flex-start; gap: 15px;">
+                    <img src="${badgeImg}" style="height: 60px;">
+                    <div>
+                        <strong>Félicitations !</strong><br>
+                        Le site <strong>${domain}</strong> est hébergé de manière éco-responsable.
+                        <br>
+                        <button onclick="delayedRedirect('${reportUrl}', 'Accès au certificat officiel...')" class="btn-action btn-primary">Voir le test complet →</button>
+                    </div>
+                </div>
+                <div class="badge-box">
+                    <span style="font-size: 11px; font-weight: bold; text-transform: uppercase;">Intégrer ce badge :</span>
+                    <code id="codeSnippet">${badgeTag.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code>
+                    <button class="copy-btn" onclick="copyCode()">Copier le code HTML</button>
+                </div>
+            `;
+        } else {
+            resultDiv.classList.add('is-fossil');
+            resultDiv.innerHTML = `
+                <div style="display: flex; gap: 15px; align-items: flex-start;">
+                    <span style="font-size: 24px;">⚠️</span>
+                    <div>
+                        <strong>Information d'impact</strong><br>
+                        Selon nos sources, ce site utilise un hébergeur qui utilise des énergies fossiles.
+                        <p class="disclaimer">Note : Les résultats de la Green Web Foundation peuvent parfois comporter des erreurs si les données de l'hébergeur ne sont pas à jour.</p>
+                        <button onclick="delayedRedirect('${reportUrl}', 'Préparation du rapport complet...')" class="btn-action btn-primary">Voir le test complet →</button>
+                        <button onclick="delayedRedirect('https://www.thegreenwebfoundation.org/sample-emails/', 'Génération des modèles de mails...')" class="btn-action btn-secondary">Voir des exemples de mails</button>
+                    </div>
+                </div>
+            `;
+        }
+    } catch (error) {
+        loader.style.display = "none";
+        btn.disabled = false;
+        resultDiv.style.display = "block";
+        resultDiv.innerHTML = "❌ Impossible d'analyser ce domaine.";
+    }
+}
+
+// Fonction pour le chargement de 3 secondes avant redirection
+async function delayedRedirect(url, message) {
+    const resultDiv = document.getElementById('result');
+    const loader = document.getElementById('loader');
+    const loaderText = document.getElementById('loaderText');
+
+    resultDiv.style.display = "none";
+    loaderText.innerText = message;
+    loader.style.display = "flex";
+
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    window.open(url, "_blank");
+    
+    loader.style.display = "none";
+    resultDiv.style.display = "block";
+}
+
+function copyCode() {
+    const code = document.getElementById('codeSnippet').innerText;
+    navigator.clipboard.writeText(code).then(() => { alert("Code copié !"); });
+}
+</script>
+
+</body>
+</html>
